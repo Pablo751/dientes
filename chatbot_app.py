@@ -8,7 +8,7 @@ import os
 # 1. Cargar de Forma Segura la Clave API de OpenAI
 # -------------------------------
 
-openai.api_key = st.secrets["OPENAI_API_KEY"]
+client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
 
 # -------------------------------
 # 2. Configuración de la Aplicación Streamlit
@@ -71,15 +71,7 @@ def get_product_info(product_name: str, data: pd.DataFrame) -> Optional[Dict[str
 def cached_generate_chatbot_response(product_info: Dict[str, str], user_question: str) -> str:
     """
     Generar una respuesta del chatbot usando datos cacheados para minimizar llamadas a la API.
-
-    Args:
-        product_info (Dict[str, str]): Información sobre el producto seleccionado.
-        user_question (str): La pregunta del usuario.
-
-    Returns:
-        str: La respuesta del chatbot.
     """
-    # Construir el prompt adaptado para productos dentales
     prompt = (
         f"Eres un asistente dental especializado que ayuda a responder preguntas sobre productos dentales. "
         f"Usa únicamente la siguiente información para tu respuesta en español.\n\n"
@@ -92,8 +84,8 @@ def cached_generate_chatbot_response(product_info: Dict[str, str], user_question
     )
 
     try:
-        response = openai.ChatCompletion.create(
-            model="gpt-4",  # Asegúrate de usar el modelo correcto
+        response = client.chat.completions.create(
+            model="gpt-4o-2024-08-06",
             messages=[
                 {"role": "system", "content": "Eres un asistente dental especializado y respondes siempre en español."},
                 {"role": "user", "content": prompt}
@@ -101,8 +93,8 @@ def cached_generate_chatbot_response(product_info: Dict[str, str], user_question
             max_tokens=500,
             temperature=0.7
         )
-        return response['choices'][0]['message']['content'].strip()
-    except openai.error.OpenAIError as e:
+        return response.choices[0].message.content.strip()
+    except Exception as e:
         return f"Ocurrió un error al procesar tu solicitud: {e}"
 
 # -------------------------------
