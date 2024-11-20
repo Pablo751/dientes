@@ -60,8 +60,12 @@ def get_product_info(product_name: str, data: pd.DataFrame) -> Optional[Dict[str
     Returns:
         Optional[Dict[str, str]]: Diccionario con los detalles del producto si se encuentra, de lo contrario None.
     """
-    # Extraer el nombre del producto de la descripción
-    product_row = data[data['Descripción'].str.contains(product_name, case=False, na=False)]
+    # Limpiamos el nombre del producto para la búsqueda
+    clean_product_name = product_name.replace("™", "").replace("®", "").strip()
+    
+    # Buscamos coincidencias parciales en la descripción
+    product_row = data[data['Descripción'].str.contains(clean_product_name, case=False, na=False, regex=False)]
+    
     if not product_row.empty:
         return product_row.iloc[0].to_dict()
     else:
