@@ -1,5 +1,3 @@
-# chatbot_app.py
-
 import streamlit as st
 import openai
 import pandas as pd
@@ -10,23 +8,20 @@ import os
 # 1. Cargar de Forma Segura la Clave API de OpenAI
 # -------------------------------
 
-# Accede al secreto desde la gestión de secretos de Streamlit
 openai.api_key = st.secrets["OPENAI_API_KEY"]
 
 # -------------------------------
 # 2. Configuración de la Aplicación Streamlit
 # -------------------------------
 
-# Configuración de la página
 st.set_page_config(
-    page_title="💬 Chatbot de Productos",
-    page_icon="💬",
+    page_title="💬 Chatbot de Productos Dentales",
+    page_icon="🦷",
     layout="centered",
     initial_sidebar_state="expanded",
 )
 
-# Título de la aplicación
-st.title("💬 Chatbot de Productos")
+st.title("🦷 Chatbot de Productos Dentales")
 
 # -------------------------------
 # 3. Cargar y Cachear los Datos de Productos
@@ -35,19 +30,19 @@ st.title("💬 Chatbot de Productos")
 @st.cache_data
 def load_product_data(file_path: str) -> pd.DataFrame:
     """
-    Cargar y preprocesar los datos de productos desde un archivo Excel.
+    Cargar y preprocesar los datos de productos desde un archivo CSV.
 
     Args:
-        file_path (str): Ruta al archivo Excel.
+        file_path (str): Ruta al archivo CSV.
 
     Returns:
         pd.DataFrame: Datos de productos procesados.
     """
-    df = pd.read_excel(file_path)
-    # Asegurar que las columnas estén correctamente nombradas
-    df.columns = ["Index", "Producto", "Descripción", "Beneficios", "Aplicación", "Recomendaciones de Uso"]
-    # Eliminar la primera fila si contiene datos no deseados
-    df = df.drop(0).reset_index(drop=True)
+    df = pd.read_csv(file_path)
+    # Asegurar que tengamos todas las columnas necesarias
+    required_columns = ["Descripción", "Instrucciones de Uso", "Ventajas", "Presentación"]
+    if not all(col in df.columns for col in required_columns):
+        raise ValueError("El archivo CSV no contiene todas las columnas requeridas")
     return df
 
 # -------------------------------
@@ -65,7 +60,8 @@ def get_product_info(product_name: str, data: pd.DataFrame) -> Optional[Dict[str
     Returns:
         Optional[Dict[str, str]]: Diccionario con los detalles del producto si se encuentra, de lo contrario None.
     """
-    product_row = data[data['Producto'].str.contains(product_name, case=False, na=False)]
+    # Extraer el nombre del producto de la descripción
+    product_row = data[data['Descripción'].str.contains(product_name, case=False, na=False)]
     if not product_row.empty:
         return product_row.iloc[0].to_dict()
     else:
@@ -83,29 +79,27 @@ def cached_generate_chatbot_response(product_info: Dict[str, str], user_question
     Returns:
         str: La respuesta del chatbot.
     """
-    # Construir el prompt
+    # Construir el prompt adaptado para productos dentales
     prompt = (
-        f"Eres un asistente que ayuda a responder preguntas sobre productos. "
+        f"Eres un asistente dental especializado que ayuda a responder preguntas sobre productos dentales. "
         f"Usa únicamente la siguiente información para tu respuesta en español.\n\n"
-        f"**Nombre del Producto**: {product_info['Producto']}\n"
-        f"**Descripción**: {product_info['Descripción']}\n"
-        f"**Beneficios**: {product_info['Beneficios']}\n"
-        f"**Aplicación**: {product_info['Aplicación']}\n"
-        f"**Recomendaciones de Uso**: {product_info['Recomendaciones de Uso']}\n\n"
+        f"**Descripción del Producto**: {product_info['Descripción']}\n"
+        f"**Instrucciones de Uso**: {product_info['Instrucciones de Uso']}\n"
+        f"**Ventajas**: {product_info['Ventajas']}\n"
+        f"**Presentación**: {product_info['Presentación']}\n\n"
         f"**Pregunta del Usuario**: {user_question}\n"
         f"**Respuesta**:"
     )
 
     try:
-        # Llamar a la API de OpenAI con GPT-4o
         response = openai.ChatCompletion.create(
-            model="gpt-4o-2024-08-06",  # Asegúrate de usar el modelo GPT-4o correcto
+            model="gpt-4",  # Asegúrate de usar el modelo correcto
             messages=[
-                {"role": "system", "content": "Eres un asistente útil y responde siempre en español."},
+                {"role": "system", "content": "Eres un asistente dental especializado y respondes siempre en español."},
                 {"role": "user", "content": prompt}
             ],
-            max_tokens=500,  # Puedes ajustar esto según tus necesidades
-            temperature=0.7  # Puedes ajustar la temperatura para más creatividad o precisión
+            max_tokens=500,
+            temperature=0.7
         )
         return response['choices'][0]['message']['content'].strip()
     except openai.error.OpenAIError as e:
@@ -118,24 +112,23 @@ def cached_generate_chatbot_response(product_info: Dict[str, str], user_question
 # Barra lateral para la carga de archivos
 st.sidebar.header("📂 Cargar Datos de Productos")
 
-# Permitir que los usuarios carguen su propio archivo Excel
-uploaded_file = st.sidebar.file_uploader("Sube tu archivo Excel de productos:", type=["xlsx", "xls"])
+uploaded_file = st.sidebar.file_uploader("Sube tu archivo CSV de productos dentales:", type=["csv"])
 
 if uploaded_file is not None:
     try:
         product_data = load_product_data(uploaded_file)
-        st.sidebar.success("¡Datos de productos cargados exitosamente!")
+        st.sidebar.success("¡Datos de productos dentales cargados exitosamente!")
     except Exception as e:
         st.sidebar.error(f"Error al cargar el archivo: {e}")
         st.stop()
 else:
-    # Si no se carga un archivo, usar la ruta del archivo por defecto
-    default_file_path = 'Matriz_Edificacion.xlsx'  # Asegúrate de que este archivo esté en el mismo directorio que chatbot_app.py
+    # Si no se carga un archivo, usar el archivo por defecto
+    default_file_path = 'Merged_Dental_Products.csv'
     try:
         product_data = load_product_data(default_file_path)
-        st.sidebar.info("Datos de productos por defecto cargados.")
+        st.sidebar.info("Datos de productos dentales por defecto cargados.")
     except FileNotFoundError:
-        st.sidebar.error("Archivo de producto por defecto no encontrado. Por favor, sube un archivo Excel.")
+        st.sidebar.error("Archivo de productos dentales por defecto no encontrado. Por favor, sube un archivo CSV.")
         st.stop()
     except Exception as e:
         st.sidebar.error(f"Error al cargar el archivo por defecto: {e}")
@@ -145,20 +138,17 @@ else:
 # 6. Sección de Interacción del Usuario
 # -------------------------------
 
-st.sidebar.header("🤖 Pregunta al Chatbot")
+st.sidebar.header("🦷 Pregunta al Chatbot Dental")
 
-# Selección de producto
-product_names = product_data['Producto'].tolist()
-selected_product = st.sidebar.selectbox("Selecciona un producto:", product_names)
+# Extraer nombres de productos de las descripciones
+product_names = [desc.split(':')[0].strip() for desc in product_data['Descripción']]
+selected_product = st.sidebar.selectbox("Selecciona un producto dental:", product_names)
 
-# Entrada de pregunta del usuario
-user_question = st.sidebar.text_input("Ingresa tu pregunta sobre el producto:")
+user_question = st.sidebar.text_input("Ingresa tu pregunta sobre el producto dental:")
 
-# Inicializar el estado de la sesión para el historial de conversación
 if 'conversation' not in st.session_state:
     st.session_state['conversation'] = []
 
-# Botón de envío
 if st.sidebar.button("Obtener Respuesta"):
     if not user_question:
         st.sidebar.warning("Por favor, ingresa una pregunta para obtener una respuesta.")
@@ -166,14 +156,13 @@ if st.sidebar.button("Obtener Respuesta"):
         with st.spinner("Generando respuesta..."):
             product_info = get_product_info(selected_product, product_data)
             if not product_info:
-                st.sidebar.error("Información del producto no encontrada. Por favor, selecciona un producto válido.")
+                st.sidebar.error("Información del producto dental no encontrada. Por favor, selecciona un producto válido.")
             else:
                 answer = cached_generate_chatbot_response(product_info, user_question)
-                # Agregar al historial de conversación
                 st.session_state['conversation'].append((user_question, answer))
                 st.sidebar.success("¡Respuesta generada!")
 
-# Limitar el historial de conversación a las últimas 5 interacciones
+# Limitar el historial de conversación
 MAX_HISTORY = 5
 if len(st.session_state['conversation']) > MAX_HISTORY:
     st.session_state['conversation'].pop(0)
